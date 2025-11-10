@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Career Research Assistant</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .loader {
+            border-top-color: #6366f1;
+            -webkit-animation: spin 1s linear infinite;
+            animation: spin 1s linear infinite;
+        }
+        @-webkit-keyframes spin {
+            0% { -webkit-transform: rotate(0deg); }
+            100% { -webkit-transform: rotate(360deg); }
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .toast {
+            visibility: hidden;
+            min-width: 250px;
+            background-color: #10b981;
+            color: #fff;
+            text-align: center;
+            border-radius: 8px;
+            padding: 16px;
+            position: fixed;
+            z-index: 100;
+            left: 50%;
+            transform: translateX(-50%);
+            bottom: 30px;
+            opacity: 0;
+            transition: opacity 0.5s, visibility 0.5s;
+        }
+        .toast.show {
+            visibility: visible;
+            opacity: 1;
+        }
+        .prompt-card {
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .prompt-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        /* Modal styles */
+        .modal-backdrop {
+            transition: opacity 0.3s ease;
+        }
+        .modal-content {
+            transition: transform 0.3s ease;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white flex items-center justify-center min-h-screen p-4">
+
+    <div class="w-full max-w-4xl mx-auto bg-gray-800 rounded-2xl shadow-2xl p-6 md:p-8">
+        
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-indigo-400">AI Career Research Assistant</h1>
+            <p class="text-gray-400 mt-2">Enter your goal, and I'll find effective <span class="font-semibold text-indigo-300">ChatGPT prompts</span> for you, with sources.</p>
+        </div>
+
+        <!-- Input Form -->
+        <div class="space-y-6">
+            <div>
+                <label for="goal" class="block text-sm font-medium text-gray-300 mb-2">What is your career goal or question?</label>
+                <textarea id="goal" rows="4" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition" placeholder="e.g., 'Find a new career path that matches my skills in creative writing and data analysis' or 'How to write a compelling cover letter for a project manager role?'"></textarea>
+            </div>
+            
+            <!-- Generate Button -->
+            <button id="generateBtn" class="w-full bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 10l.01.01" />
+                </svg>
+                Find ChatGPT Prompts
+            </button>
+        </div>
+
+        <!-- Output Section -->
+        <div id="outputSection" class="mt-8 hidden">
+            <div id="loader" class="text-center">
+                <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mx-auto"></div>
+                <p class="mt-4 text-gray-300">Researching the web for the best career prompts...</p>
+            </div>
+            <div id="resultsContainer" class="space-y-4">
+                <!-- Generated prompts will be inserted here -->
+            </div>
+             <!-- NEW: Download Section -->
+            <div id="downloadSection" class="mt-6 pt-4 border-t border-gray-700 hidden">
+                <h3 class="text-lg font-semibold text-center text-gray-300 mb-3">Download Options</h3>
+                <div class="flex flex-col sm:flex-row gap-3">
+                    <button id="downloadCsvBtn" class="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 flex items-center justify-center">
+                        Download as CSV
+                    </button>
+                    <button id="downloadMdBtn" class="flex-1 bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-lg transition duration-300 flex items-center justify-center">
+                        Download as Markdown
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Error Message Box -->
+        <div id="errorBox" class="mt-4 bg-red-900 border border-red-700 text-red-300 px-4 py-3 rounded-lg relative hidden" role="alert">
+            <strong class="font-bold">Error:</strong>
+            <span id="errorMessage" class="block sm:inline">Something went wrong.</span>
+        </div>
+
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast">Prompt copied to clipboard!</div>
+
+    <!-- AI Response Modal -->
+    <div id="aiResponseModal" class="fixed inset-0 z-50 overflow-y-auto hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div id="modalBackdrop" class="fixed inset-0 bg-gray-900 bg-opacity-75 transition-opacity modal-backdrop" aria-hidden="true"></div>
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            <div id="modalContent" class="inline-block align-bottom bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full modal-content">
+                <div class="bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                    <div class="sm:flex sm:items-start w-full">
+                        <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-indigo-900 sm:mx-0 sm:h-10 sm:w-10">
+                            <svg class="h-6 w-6 text-indigo-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L15.232 5.232z" />
+                            </svg>
+                        </div>
+                        <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+                            <h3 class="text-lg leading-6 font-medium text-white" id="modal-title">Edit & Execute Prompt</h3>
+                            <div id="modalEditView" class="mt-4">
+                                <textarea id="modalPromptText" rows="8" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"></textarea>
+                            </div>
+                            <div id="modalResponseView" class="mt-4 hidden">
+                                <div id="modalLoader" class="text-center">
+                                    <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-8 w-8 mx-auto"></div>
+                                    <p class="mt-2 text-sm text-gray-400">Generating answer...</p>
+                                </div>
+                                <p id="modalResponse" class="text-sm text-gray-300 whitespace-pre-wrap"></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-gray-700 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                    <button type="button" id="executePromptBtn" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:ml-3 sm:w-auto sm:text-sm">
+                        Execute Modified Prompt
+                    </button>
+                    <button type="button" id="closeModalBtn" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-500 shadow-sm px-4 py-2 bg-gray-600 text-base font-medium text-white hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:w-auto sm:text-sm">
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        // --- DOM Elements ---
+        const generateBtn = document.getElementById('generateBtn');
+        const goalInput = document.getElementById('goal');
+        const outputSection = document.getElementById('outputSection');
+        const loader = document.getElementById('loader');
+        const resultsContainer = document.getElementById('resultsContainer');
+        const errorBox = document.getElementById('errorBox');
+        const errorMessage = document.getElementById('errorMessage');
+        const toast = document.getElementById('toast');
+        const downloadSection = document.getElementById('downloadSection');
+        const downloadCsvBtn = document.getElementById('downloadCsvBtn');
+        const downloadMdBtn = document.getElementById('downloadMdBtn');
+        // Modal elements
+        const modal = document.getElementById('aiResponseModal');
+        const modalBackdrop = document.getElementById('modalBackdrop');
+        const modalContent = document.getElementById('modalContent');
+        const modalEditView = document.getElementById('modalEditView');
+        const modalResponseView = document.getElementById('modalResponseView');
+        const modalPromptText = document.getElementById('modalPromptText');
+        const modalLoader = document.getElementById('modalLoader');
+        const modalResponse = document.getElementById('modalResponse');
+        const closeModalBtn = document.getElementById('closeModalBtn');
+        const executePromptBtn = document.getElementById('executePromptBtn');
+        
+        let currentPrompts = []; // To store the latest results for download
+
+        // --- Gemini API Call for Finding Prompts (JSON response) ---
+        async function findPromptsWithGemini(prompt, retries = 3, delay = 1000) {
+            const apiKey = ""; // Leave empty
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+            
+            const payload = {
+                contents: [{ role: "user", parts: [{ text: prompt }] }],
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: "OBJECT",
+                        properties: {
+                            prompts: {
+                                type: "ARRAY",
+                                items: {
+                                    type: "OBJECT",
+                                    properties: {
+                                        title: { type: "STRING" },
+                                        prompt: { type: "STRING" },
+                                        source: { type: "STRING" },
+                                        category: { type: "STRING" }
+                                    },
+                                    required: ["title", "prompt", "source", "category"]
+                                }
+                            }
+                        },
+                        required: ["prompts"]
+                    }
+                }
+            };
+
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    const result = await response.json();
+                    
+                    if (result.candidates?.[0]?.content?.parts?.[0]?.text) {
+                        return result.candidates[0].content.parts[0].text;
+                    } else {
+                        if (result.promptFeedback?.blockReason) {
+                             throw new Error(`Request blocked: ${result.promptFeedback.blockReason}.`);
+                        }
+                        throw new Error("Invalid response structure from API.");
+                    }
+                } catch (error) {
+                    console.error(`Attempt ${i + 1} failed:`, error);
+                    if (i < retries - 1) {
+                        await new Promise(res => setTimeout(res, delay));
+                        delay *= 2;
+                    } else {
+                        throw error;
+                    }
+                }
+            }
+        }
+
+        // --- Gemini API Call for Getting Answers (Text response) ---
+        async function getAnswerWithGemini(prompt, retries = 3, delay = 1000) {
+            const apiKey = "AIzaSyCiJWFYprsUl0JgkS3FlecZz48bXiyeEcQ"; // Leave empty
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+            
+            const payload = {
+                contents: [{ role: "user", parts: [{ text: prompt }] }]
+            };
+
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    const result = await response.json();
+                    if (result.candidates?.[0]?.content?.parts?.[0]?.text) {
+                        return result.candidates[0].content.parts[0].text;
+                    } else {
+                         if (result.promptFeedback?.blockReason) {
+                             throw new Error(`Request blocked: ${result.promptFeedback.blockReason}.`);
+                        }
+                        throw new Error("Invalid response structure from API.");
+                    }
+                } catch (error) {
+                    console.error(`Attempt ${i + 1} failed:`, error);
+                    if (i < retries - 1) {
+                        await new Promise(res => setTimeout(res, delay));
+                        delay *= 2;
+                    } else {
+                        throw error;
+                    }
+                }
+            }
+        }
+        
+        // --- Event Listeners ---
+        generateBtn.addEventListener('click', async () => {
+            const goal = goalInput.value.trim();
+            if (!goal) {
+                showError("Please enter your career goal or question.");
+                return;
+            }
+
+            hideError();
+            outputSection.classList.remove('hidden');
+            loader.style.display = 'block';
+            resultsContainer.innerHTML = '';
+            downloadSection.classList.add('hidden');
+            currentPrompts = [];
+            generateBtn.disabled = true;
+            generateBtn.classList.add('opacity-50', 'cursor-not-allowed');
+
+            const metaPrompt = `
+                You are a highly intelligent AI assistant specializing in prompt engineering for ChatGPT. Your task is to help a user with their career-related goal by finding the most effective prompts specifically tailored for use with ChatGPT.
+                User's Goal: "${goal}"
+                Your Process:
+                1. Analyze the user's goal.
+                2. Simulate a web search for the best **ChatGPT prompts** for career development. Imagine you are browsing sites like 'PromptHero', 'FlowGPT', Reddit's r/ChatGPT, and expert blogs on ChatGPT prompt engineering.
+                3. Based on your simulated research, generate a list of 3 to 5 distinct, actionable, and powerful prompts that are structured to get the best results from ChatGPT.
+                4. For each prompt, create a short, descriptive title (e.g., "ChatGPT Career Path Analysis").
+                5. For each prompt, invent a plausible and specific source relevant to ChatGPT (e.g., "From a popular thread on r/ChatGPT," "Adapted from a 'PromptHero' career collection," "Inspired by a guide on 'Advanced ChatGPT Techniques' blog").
+                6. Categorize each prompt (e.g., 'Self-Reflection', 'Resume & Cover Letter', 'Interview Simulation', 'Career Strategy').
+                Output Format: You must return ONLY a valid JSON object following the provided schema.
+            `;
+
+            try {
+                const jsonString = await findPromptsWithGemini(metaPrompt);
+                const resultData = JSON.parse(jsonString);
+                displayResults(resultData.prompts);
+            } catch (error) {
+                console.error("Failed to generate prompts:", error);
+                showError(`An error occurred: ${error.message}. Please try rephrasing your goal.`);
+            } finally {
+                loader.style.display = 'none';
+                generateBtn.disabled = false;
+                generateBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            }
+        });
+
+        // --- Main Display Function ---
+        function displayResults(prompts) {
+            if (!prompts || prompts.length === 0) {
+                showError("Could not find any relevant prompts. Please try a different goal.");
+                return;
+            }
+            
+            currentPrompts = prompts;
+
+            prompts.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'prompt-card bg-gray-700 rounded-lg p-4 border border-gray-600';
+                
+                card.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <div class="flex-1 mr-2">
+                            <span class="text-xs font-semibold inline-block py-1 px-2 uppercase rounded-full text-indigo-300 bg-indigo-900">
+                                ${item.category}
+                            </span>
+                            <h4 class="text-lg font-semibold text-white mt-3">${item.title}</h4>
+                            <p class="text-gray-300 mt-1 whitespace-pre-wrap">${item.prompt}</p>
+                        </div>
+                        <button class="copy-btn bg-gray-600 hover:bg-gray-500 text-gray-300 font-bold p-2 rounded-md transition duration-200 flex-shrink-0" title="Copy Prompt">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" /><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2H6z" /></svg>
+                        </button>
+                    </div>
+                    <div class="text-xs text-gray-400 mt-3 pt-3 border-t border-gray-600">
+                        <strong>Source:</strong> 
+                        <a href="https://www.google.com/search?q=${encodeURIComponent(item.source)}" target="_blank" rel="noopener noreferrer" class="text-indigo-400 hover:underline">
+                            <em>${item.source}</em>
+                        </a>
+                    </div>
+                    <div class="mt-4">
+                        <button class="get-answer-btn w-full text-sm bg-indigo-500 hover:bg-indigo-600 text-white font-semibold py-2 px-3 rounded-lg transition duration-300 flex items-center justify-center">
+                            ✨ Get Answer from AI
+                        </button>
+                    </div>
+                `;
+                
+                card.querySelector('.copy-btn').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    copyToClipboard(item.prompt);
+                });
+                
+                card.querySelector('.get-answer-btn').addEventListener('click', () => {
+                    openModal(item.prompt);
+                });
+
+                resultsContainer.appendChild(card);
+            });
+            
+            downloadSection.classList.remove('hidden');
+        }
+        
+        // --- Download Logic ---
+        function downloadFile(filename, content, mimeType) {
+            const blob = new Blob([content], { type: mimeType });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        downloadCsvBtn.addEventListener('click', () => {
+            if (currentPrompts.length === 0) return;
+            const headers = '"title","category","prompt","source"';
+            const rows = currentPrompts.map(p => {
+                const title = `"${p.title.replace(/"/g, '""')}"`;
+                const category = `"${p.category.replace(/"/g, '""')}"`;
+                const prompt = `"${p.prompt.replace(/"/g, '""')}"`;
+                const source = `"${p.source.replace(/"/g, '""')}"`;
+                return [title, category, prompt, source].join(',');
+            });
+            const csvContent = `${headers}\n${rows.join('\n')}`;
+            downloadFile('career_prompts.csv', csvContent, 'text/csv;charset=utf-8;');
+        });
+
+        downloadMdBtn.addEventListener('click', () => {
+            if (currentPrompts.length === 0) return;
+            const mdContent = currentPrompts.map(p => {
+                return `
+## [${p.category}] ${p.title}
+**Prompt:**
+\`\`\`
+${p.prompt}
+\`\`\`
+**Source:** [${p.source}](https://www.google.com/search?q=${encodeURIComponent(p.source)})
+                `.trim();
+            }).join('\n\n---\n\n');
+            downloadFile('career_prompts.md', mdContent, 'text/markdown;charset=utf-8;');
+        });
+
+        // --- Modal Control Functions ---
+        function openModal(promptText) {
+            modalEditView.classList.remove('hidden');
+            executePromptBtn.classList.remove('hidden');
+            modalResponseView.classList.add('hidden');
+            modalPromptText.value = promptText;
+            
+            modal.classList.remove('hidden');
+            document.body.classList.add('overflow-hidden');
+            setTimeout(() => {
+                modalBackdrop.classList.remove('opacity-0');
+                modalContent.classList.remove('scale-95');
+            }, 10);
+        }
+
+        function closeModal() {
+            document.body.classList.remove('overflow-hidden');
+            modalBackdrop.classList.add('opacity-0');
+            modalContent.classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
+        }
+        
+        executePromptBtn.addEventListener('click', async () => {
+            const modifiedPrompt = modalPromptText.value;
+            if (!modifiedPrompt) return;
+
+            modalEditView.classList.add('hidden');
+            executePromptBtn.classList.add('hidden');
+            modalResponseView.classList.remove('hidden');
+            modalLoader.style.display = 'block';
+            modalResponse.textContent = '';
+            
+            try {
+                const answer = await getAnswerWithGemini(modifiedPrompt);
+                showModalResponse(answer);
+            } catch (error) {
+                showModalResponse(`Error: Could not get an answer. ${error.message}`);
+            }
+        });
+
+
+        function showModalResponse(text) {
+            modalLoader.style.display = 'none';
+            modalResponse.textContent = text;
+        }
+
+        closeModalBtn.addEventListener('click', closeModal);
+        modalBackdrop.addEventListener('click', closeModal);
+
+        // --- Utility Functions ---
+        function copyToClipboard(text) {
+            const textArea = document.createElement('textarea');
+            textArea.value = text;
+            document.body.appendChild(textArea);
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                showToast();
+            } catch (err) {
+                console.error('Fallback: Oops, unable to copy', err);
+                showError('Could not copy text.');
+            }
+            document.body.removeChild(textArea);
+        }
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorBox.classList.remove('hidden');
+        }
+
+        function hideError() {
+            errorBox.classList.add('hidden');
+        }
+
+        function showToast() {
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 2000);
+        }
+
+    </script>
+</body>
+</html>
+
