@@ -69,6 +69,16 @@
             <p class="text-gray-400 mt-2">Enter your goal, and I'll find effective <span class="font-semibold text-indigo-300">ChatGPT prompts</span> for you, with sources.</p>
         </div>
 
+        <!-- API Key Input -->
+        <div class="mb-6">
+            <label for="apiKeyInput" class="block text-sm font-medium text-gray-300 mb-2">Gemini API Key</label>
+            <div class="flex gap-2">
+                <input type="password" id="apiKeyInput" class="flex-1 bg-gray-700 border border-gray-600 rounded-lg p-3 text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition" placeholder="Enter your Gemini API key">
+                <button id="saveKeyBtn" class="bg-gray-600 hover:bg-gray-500 text-white font-medium py-2 px-4 rounded-lg transition">Save</button>
+            </div>
+            <p class="text-xs text-gray-500 mt-1">Get your key at <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-indigo-400 hover:underline">Google AI Studio</a> — stored locally in your browser only.</p>
+        </div>
+
         <!-- Input Form -->
         <div class="space-y-6">
             <div>
@@ -162,6 +172,19 @@
 
     <script>
         // --- DOM Elements ---
+        // --- API Key Management ---
+        const apiKeyInput = document.getElementById('apiKeyInput');
+        const saveKeyBtn = document.getElementById('saveKeyBtn');
+        const savedKey = localStorage.getItem('gemini_api_key');
+        if (savedKey) apiKeyInput.value = savedKey;
+        saveKeyBtn.addEventListener('click', () => {
+            const key = apiKeyInput.value.trim();
+            if (key) {
+                localStorage.setItem('gemini_api_key', key);
+                showToast('API key saved locally.');
+            }
+        });
+
         const generateBtn = document.getElementById('generateBtn');
         const goalInput = document.getElementById('goal');
         const outputSection = document.getElementById('outputSection');
@@ -189,7 +212,8 @@
 
         // --- Gemini API Call for Finding Prompts (JSON response) ---
         async function findPromptsWithGemini(prompt, retries = 3, delay = 1000) {
-            const apiKey = ""; // Leave empty
+            const apiKey = localStorage.getItem('gemini_api_key') || '';
+            if (!apiKey) throw new Error('Please enter your Gemini API key above.');
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
             
             const payload = {
@@ -251,7 +275,8 @@
 
         // --- Gemini API Call for Getting Answers (Text response) ---
         async function getAnswerWithGemini(prompt, retries = 3, delay = 1000) {
-            const apiKey = ""; // Leave empty
+            const apiKey = localStorage.getItem('gemini_api_key') || '';
+            if (!apiKey) throw new Error('Please enter your Gemini API key above.');
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
             
             const payload = {
@@ -501,10 +526,12 @@ ${p.prompt}
             errorBox.classList.add('hidden');
         }
 
-        function showToast() {
+        function showToast(message) {
+            if (message) toast.textContent = message;
             toast.classList.add('show');
             setTimeout(() => {
                 toast.classList.remove('show');
+                toast.textContent = 'Prompt copied to clipboard!';
             }, 2000);
         }
 
